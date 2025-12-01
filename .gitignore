@@ -1,0 +1,23 @@
+# Logs
+logs
+*.log
+
+# Dependencies
+node_modules
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.tmp
+tmp_*
+response.json
+check_api.js
