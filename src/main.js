@@ -34,6 +34,7 @@ let fetchedKeywords = {};
 let userKeywords = {};
 let selectedCategory = null;
 let rawJsonResponse = '';
+let searchQuery = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     initialize();
@@ -47,6 +48,11 @@ function setupEventListeners() {
 
     document.getElementById('add-btn').addEventListener('click', addKeyword);
     document.getElementById('save-btn').addEventListener('click', saveKeywordsToKV);
+
+    document.getElementById('keyword-search').addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        render();
+    });
 
     // Dark mode toggle
     const darkModeBtn = document.getElementById('dark-mode-btn');
@@ -214,7 +220,26 @@ function getDisplayKeywords() {
 }
 
 function render() {
-    const displayKeywords = getDisplayKeywords();
+    let displayKeywords = getDisplayKeywords();
+
+    // Filter keywords by search query
+    if (searchQuery) {
+        const filtered = {};
+        for (const [category, keywords] of Object.entries(displayKeywords)) {
+            const categoryMatch = category.toLowerCase().includes(searchQuery);
+            const matchedKeywords = keywords.filter(k => k.toLowerCase().includes(searchQuery));
+
+            if (categoryMatch) {
+                // If category matches, show all its keywords
+                filtered[category] = keywords;
+            } else if (matchedKeywords.length > 0) {
+                // If category doesn't match, only show matching keywords
+                filtered[category] = matchedKeywords;
+            }
+        }
+        displayKeywords = filtered;
+    }
+
     const categories = Object.keys(displayKeywords);
 
     // Update Dropdown
@@ -258,6 +283,7 @@ function render() {
 
         const icon = document.createElement('span');
         icon.className = 'toggle-icon';
+        if (searchQuery) icon.classList.add('rotated');
         icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>'; // Down arrow
 
         header.appendChild(titleText);
@@ -272,7 +298,8 @@ function render() {
         };
 
         const content = document.createElement('div');
-        content.className = 'category-content hidden';
+        content.className = 'category-content';
+        if (!searchQuery) content.classList.add('hidden');
 
         keywords.forEach(keyword => {
             const chip = document.createElement('div');

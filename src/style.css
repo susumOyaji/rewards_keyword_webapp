@@ -58,6 +58,23 @@ header h1 {
     align-items: center;
 }
 
+.search-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.search-icon {
+    fill: #555;
+}
+
+#keyword-search {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+}
+
 select,
 input {
     padding: 8px;
@@ -253,7 +270,8 @@ body.dark-mode input {
     border-color: #444;
 }
 
-body.dark-mode button svg {
+body.dark-mode button svg,
+body.dark-mode .search-icon {
     fill: #e0e0e0;
 }
 
