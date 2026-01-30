@@ -36,7 +36,7 @@ let selectedCategory = null;
 let rawJsonResponse = '';
 let searchQuery = '';
 let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 30;
 
 document.addEventListener('DOMContentLoaded', () => {
     initialize();
@@ -184,7 +184,10 @@ function parseKeywordsFromHtml(htmlBody) {
     const h3Elements = doc.querySelectorAll('h3');
 
     h3Elements.forEach(h3 => {
-        const categoryName = h3.textContent.trim();
+        let categoryNameText = h3.textContent.trim();
+        // Use content inside ( ) or （ ） as category name if present
+        const match = categoryNameText.match(/[（\(](.*?)[）\)]/);
+        const categoryName = match ? match[1].trim() : categoryNameText;
         const keywords = [];
         let currentElement = h3.nextElementSibling;
         let foundUl = null;
@@ -207,10 +210,38 @@ function parseKeywordsFromHtml(htmlBody) {
         if (foundUl) {
             const liElements = foundUl.querySelectorAll('li');
             liElements.forEach(li => {
-                let keywordText = li.textContent.trim().replace(/\(.*?\)/g, '').trim();
-                keywordText = keywordText.replace(/^\d+\.\s*/, '').trim();
-                keywordText = keywordText.replace(/^-+\s*/, '').trim();
-                if (keywordText) keywords.push(keywordText);
+                let text = li.textContent.trim();
+
+                // 1. Priority: Extract phrases inside 「 」 or 『 』 anywhere in the text
+                // This handles cases like: ペット（「大切なペットをケア」「ペットを甘やかしましょう」)
+                const quoteMatches = [...text.matchAll(/[「『](.*?[」』])/g)];
+
+                if (quoteMatches.length > 0) {
+                    quoteMatches.forEach(m => {
+                        const keyword = m[0].trim();
+                        if (keyword) keywords.push(keyword);
+                    });
+                    return; // Found quotes, so we are done with this line
+                }
+
+                // 2. If no quotes, extract content inside ( ) or （ ）
+                // This handles cases like: 2月のイベント（バレンタイン）
+                const parenMatch = text.match(/[（\(](.*?)[）\)]/);
+                if (parenMatch) {
+                    text = parenMatch[1].trim();
+                }
+
+                // 3. Fallback: Split by commas/separators and cleanup
+                const potentialKeywords = text.split(/[、,]\s*/);
+                potentialKeywords.forEach(pk => {
+                    let k = pk.trim();
+                    // Cleanup leading numbers (e.g., "1. ")
+                    k = k.replace(/^\d+\.\s*/, '').trim();
+                    // Cleanup leading dashes (e.g., "- ")
+                    k = k.replace(/^-+\s*/, '').trim();
+
+                    if (k) keywords.push(k);
+                });
             });
         }
 

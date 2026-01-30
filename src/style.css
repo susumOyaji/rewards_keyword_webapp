@@ -10,10 +10,23 @@ body {
     color: #333;
 }
 
+/* Layout container for fixed header and scrollable content */
+body,
+html {
+    height: 100%;
+    overflow: hidden;
+    /* Prevent body scroll, handle inside app-container */
+}
+
 .app-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 16px;
+    height: 100vh;
+    /* Full viewport height */
+    display: flex;
+    flex-direction: column;
+    padding: 16px 16px 0 16px;
+    /* Remove bottom padding to let scrolling go to edge */
 }
 
 header {
@@ -26,6 +39,51 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
+    /* Don't shrink header */
+}
+
+main {
+    flex: 1;
+    /* Take remaining height */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Main container doesn't scroll */
+    min-height: 0;
+    /* Critical for nested flex scrolling */
+}
+
+.fixed-top-section {
+    flex-shrink: 0;
+    /* Keep this section fixed */
+    margin-bottom: 8px;
+}
+
+.scrollable-content {
+    flex: 1;
+    /* Take remaining height in main */
+    overflow-y: auto;
+    /* Scroll strictly within this area */
+    padding-bottom: 16px;
+    /* Add padding at the bottom for scrolling content */
+
+    /* Custom scrollbar styling (optional but looks nice) */
+    scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
+}
+
+.scrollable-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
 }
 
 header h1 {
@@ -33,15 +91,21 @@ header h1 {
     font-size: 20px;
 }
 
-.source-link {
-    margin-bottom: 16px;
-    padding: 8px;
+.header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
 }
 
-.source-link a {
-    color: #2196F3;
+.header-source-link {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.header-source-link:hover {
+    color: white;
     text-decoration: underline;
-    cursor: pointer;
 }
 
 .card {
