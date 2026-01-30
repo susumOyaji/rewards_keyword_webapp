@@ -35,6 +35,8 @@ let userKeywords = {};
 let selectedCategory = null;
 let rawJsonResponse = '';
 let searchQuery = '';
+let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+const MAX_HISTORY = 10;
 
 document.addEventListener('DOMContentLoaded', () => {
     initialize();
@@ -49,9 +51,34 @@ function setupEventListeners() {
     document.getElementById('add-btn').addEventListener('click', addKeyword);
     document.getElementById('save-btn').addEventListener('click', saveKeywordsToKV);
 
-    document.getElementById('keyword-search').addEventListener('input', (e) => {
+    const searchInput = document.getElementById('keyword-search');
+    searchInput.addEventListener('input', (e) => {
         searchQuery = e.target.value.toLowerCase();
         render();
+        if (searchQuery) {
+            renderSearchHistory(searchQuery);
+        } else {
+            renderSearchHistory();
+        }
+    });
+
+    searchInput.addEventListener('focus', () => {
+        renderSearchHistory(searchQuery);
+        document.getElementById('search-history').classList.remove('hidden');
+    });
+
+    searchInput.addEventListener('blur', () => {
+        // Delay to allow clicking history items
+        setTimeout(() => {
+            document.getElementById('search-history').classList.add('hidden');
+        }, 200);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && searchQuery.trim()) {
+            addToSearchHistory(searchQuery.trim());
+            document.getElementById('search-history').classList.add('hidden');
+        }
     });
 
     // Dark mode toggle
@@ -428,4 +455,75 @@ function hideError() {
 
 function updateRawJsonDisplay() {
     document.getElementById('raw-json-display').textContent = rawJsonResponse;
+}
+
+function addToSearchHistory(query) {
+    if (!query) return;
+    // Remove if already exists to move to top
+    searchHistory = searchHistory.filter(item => item.toLowerCase() !== query.toLowerCase());
+    searchHistory.unshift(query);
+    // Limit history size
+    if (searchHistory.length > MAX_HISTORY) {
+        searchHistory = searchHistory.slice(0, MAX_HISTORY);
+    }
+    localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+}
+
+function removeFromSearchHistory(query) {
+    searchHistory = searchHistory.filter(item => item !== query);
+    localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+    renderSearchHistory(searchQuery);
+}
+
+function renderSearchHistory(filter = '') {
+    const container = document.getElementById('search-history');
+    container.innerHTML = '';
+
+    const displayHistory = filter
+        ? searchHistory.filter(item => item.toLowerCase().includes(filter.toLowerCase()))
+        : searchHistory;
+
+    if (displayHistory.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    displayHistory.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+
+        div.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+            </svg>
+            <span class="history-text">${item}</span>
+            <span class="remove-history" title="Remove from history">
+                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                    <path d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </span>
+        `;
+
+        div.querySelector('.history-text').onclick = () => {
+            const searchInput = document.getElementById('keyword-search');
+            searchInput.value = item;
+            searchQuery = item.toLowerCase();
+            render();
+            addToSearchHistory(item); // Move to top
+            container.classList.add('hidden');
+        };
+
+        div.querySelector('.remove-history').onclick = (e) => {
+            e.stopPropagation();
+            removeFromSearchHistory(item);
+        };
+
+        container.appendChild(div);
+    });
+
+    if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+    }
 }
