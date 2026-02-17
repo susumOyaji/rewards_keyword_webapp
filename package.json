@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Microsoft Rewardsのキーワード検索を支援するWebアプリケーションです。",
   "main": "index.js",
-  "devDependencies": {},
+  "devDependencies": {
+    "wrangler": "^4.65.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy:all": "git add . && git commit -m \"deploy: Update application\" && git push origin main"

@@ -3,7 +3,7 @@ const WORKER_SAVE_URL = 'https://rewards-keyword-worker.sumitomo0210.workers.dev
 const BLOG_URL = 'https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/';
 // Using a CORS proxy to allow fetching the blog content from the browser.
 // Without this, the browser will block the request to the blog.
-const PROXY_URL = 'https://api.allorigins.win/raw?url=';
+// const PROXY_URL = 'https://api.allorigins.win/raw?url='; // This is now a fallback
 
 async function fetchWithRetry(url, options = {}, retries = 3, backoff = 1000) {
     for (let i = 0; i < retries; i++) {
@@ -164,15 +164,37 @@ async function fetchUserKeywords() {
 }
 
 async function fetchAndParseWebKeywords() {
+    let htmlText = null;
+
+    // --- Strategy 1: Use our own proxy (Cloudflare Function) ---
     try {
-        // Use proxy to bypass CORS
-        const response = await fetchWithRetry(PROXY_URL + encodeURIComponent(BLOG_URL));
-        if (!response.ok) throw new Error(`Failed to load web keywords: ${response.status}`);
-        const htmlText = await response.text();
-        fetchedKeywords = parseKeywordsFromHtml(htmlText);
+        const proxyUrl = `/proxy?url=${encodeURIComponent(BLOG_URL)}`;
+        const response = await fetchWithRetry(proxyUrl);
+        if (!response.ok) {
+            throw new Error(`Self-proxy failed with status: ${response.status}`);
+        }
+        htmlText = await response.text();
+        console.log("Fetched keywords using self-proxy.");
     } catch (e) {
-        console.error('Error fetching web keywords:', e);
-        throw new Error(`Error fetching web keywords (CORS or Network): ${e.message}`);
+        console.warn(`Self-proxy fetch failed: ${e.message}. Falling back to public proxy.`);
+        
+        // --- Strategy 2: Fallback to public proxy ---
+        try {
+            const fallbackProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(BLOG_URL)}`;
+            const response = await fetchWithRetry(fallbackProxyUrl);
+            if (!response.ok) {
+                throw new Error(`Public proxy failed with status: ${response.status}`);
+            }
+            htmlText = await response.text();
+            console.log("Fetched keywords using public fallback proxy.");
+        } catch (e2) {
+            console.error('All fetch methods failed:', e2);
+            throw new Error(`Error fetching web keywords (both self-proxy and public proxy failed): ${e2.message}`);
+        }
+    }
+
+    if (htmlText) {
+        fetchedKeywords = parseKeywordsFromHtml(htmlText);
     }
 }
 
