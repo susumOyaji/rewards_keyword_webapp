@@ -21,3 +21,8 @@ node_modules
 tmp_*
 response.json
 check_api.js
+
+# Cloudflare
+.wrangler
+.cloudflare
+.dev.vars

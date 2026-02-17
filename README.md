@@ -15,14 +15,12 @@ Microsoft Rewardsのキーワード検索を支援するWebアプリケーショ
 
 ```
 rewards_keyword_webapp/
-├── src/                    # Webアプリケーション（デプロイ対象）
+├── src/                    # Webアプリケーション（フロントエンド）
 │   ├── index.html         # メインHTMLファイル
 │   ├── main.js            # JavaScriptロジック
 │   └── style.css          # スタイルシート
-├── worker/                # Cloudflare Worker（バックエンド）
-│   ├── src/
-│   │   └── index.js      # Worker API
-│   └── wrangler.toml     # Worker設定
+├── functions/             # Cloudflare Pages Functions (API Proxy等)
+│   └── proxy.js          # CORS回避用プロキシ
 ├── DEPLOYMENT.md          # デプロイガイド
 └── README.md
 ```

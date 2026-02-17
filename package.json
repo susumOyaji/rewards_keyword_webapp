@@ -8,6 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "wrangler pages dev src",
+    "deploy": "wrangler pages deploy src",
     "deploy:all": "git add . && git commit -m \"deploy: Update application\" && git push origin main"
   },
   "repository": {
