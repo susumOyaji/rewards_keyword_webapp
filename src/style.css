@@ -261,6 +261,29 @@ button svg {
     background-color: #fafafa;
 }
 
+.edit-category-btn {
+    margin-left: 12px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #999;
+    transition: all 0.2s;
+    border-radius: 4px;
+    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-category-btn:hover {
+    color: #2196F3;
+    background-color: rgba(33, 150, 243, 0.1);
+}
+
+.category-title-container {
+    display: flex;
+    align-items: center;
+}
+
 .toggle-icon {
     display: flex;
     align-items: center;

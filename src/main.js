@@ -134,15 +134,38 @@ async function initialize() {
 }
 
 async function fetchUserKeywords() {
+    // まずローカルストレージから読み込む（バックアップ）
+    try {
+        const localData = localStorage.getItem('userKeywordsBackup');
+        if (localData) {
+            userKeywords = JSON.parse(localData);
+            if (!userKeywords._categoryAliases) userKeywords._categoryAliases = {};
+        }
+    } catch(e) {}
+
     try {
         const response = await fetchWithRetry(WORKER_GET_URL);
         if (response.ok) {
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
                 const data = await response.json();
-                userKeywords = data;
-                rawJsonResponse = JSON.stringify(data, null, 2);
+                
+                // サーバーのデータとローカルデータをマージ（簡単な統合）
+                if (!data._categoryAliases) data._categoryAliases = {};
+                userKeywords._categoryAliases = { ...data._categoryAliases, ...(userKeywords._categoryAliases || {}) };
+                
+                for (const [cat, kws] of Object.entries(data)) {
+                    if (cat === '_categoryAliases') continue;
+                    if (!userKeywords[cat]) userKeywords[cat] = [];
+                    kws.forEach(k => {
+                        if (!userKeywords[cat].includes(k)) userKeywords[cat].push(k);
+                    });
+                }
+
+                rawJsonResponse = JSON.stringify(userKeywords, null, 2);
                 updateRawJsonDisplay();
+                // 正常に取得できたらバックアップも更新
+                localStorage.setItem('userKeywordsBackup', JSON.stringify(userKeywords));
             } else {
                 const text = await response.text();
                 rawJsonResponse = `Server returned non-JSON response:\n${text.substring(0, 500)}...`;
@@ -157,7 +180,7 @@ async function fetchUserKeywords() {
         }
     } catch (e) {
         console.error('Error fetching user keywords:', e);
-        rawJsonResponse = `Error connecting to keyword server: ${e.message}`;
+        rawJsonResponse = `Error connecting to keyword server: ${e.message}. Using local backup if available.`;
         updateRawJsonDisplay();
         // Don't block the app if user keywords fail, just log it
     }
@@ -234,13 +257,16 @@ function parseKeywordsFromHtml(htmlBody) {
             liElements.forEach(li => {
                 let text = li.textContent.trim();
 
+                // Skip lines indicating they are no longer valid (NG)
+                if (text.includes('NG')) return;
+
                 // 1. Priority: Extract phrases inside 「 」 or 『 』 anywhere in the text
                 // This handles cases like: ペット（「大切なペットをケア」「ペットを甘やかしましょう」)
-                const quoteMatches = [...text.matchAll(/[「『](.*?[」』])/g)];
+                const quoteMatches = [...text.matchAll(/[「『](.*?)[」』]/g)];
 
                 if (quoteMatches.length > 0) {
                     quoteMatches.forEach(m => {
-                        const keyword = m[0].trim();
+                        const keyword = m[1].trim();
                         if (keyword) keywords.push(keyword);
                     });
                     return; // Found quotes, so we are done with this line
@@ -249,8 +275,10 @@ function parseKeywordsFromHtml(htmlBody) {
                 // 2. If no quotes, extract content inside ( ) or （ ）
                 // This handles cases like: 2月のイベント（バレンタイン）
                 const parenMatch = text.match(/[（\(](.*?)[）\)]/);
-                if (parenMatch) {
+                if (parenMatch && !parenMatch[1].includes('例') && !parenMatch[1].includes('※') && !parenMatch[1].includes('時点')) {
                     text = parenMatch[1].trim();
+                } else if (text.match(/[（\(].*?[）\)]/)) {
+                    text = text.replace(/[（\(].*?[）\)]/g, '').trim();
                 }
 
                 // 3. Fallback: Split by commas/separators and cleanup
@@ -261,8 +289,10 @@ function parseKeywordsFromHtml(htmlBody) {
                     k = k.replace(/^\d+\.\s*/, '').trim();
                     // Cleanup leading dashes (e.g., "- ")
                     k = k.replace(/^-+\s*/, '').trim();
+                    // Remove any remaining example indicators like "例「"
+                    k = k.replace(/^例[「『]/, '').trim();
 
-                    if (k) keywords.push(k);
+                    if (k && k.length < 30) keywords.push(k); // avoid long descriptive sentences
                 });
             });
         }
@@ -275,26 +305,37 @@ function parseKeywordsFromHtml(htmlBody) {
     return fetched;
 }
 
+function getOriginalCategoryName(displayName) {
+    if (!userKeywords._categoryAliases) return displayName;
+    for (const [orig, alias] of Object.entries(userKeywords._categoryAliases)) {
+        if (alias === displayName) return orig;
+    }
+    return displayName;
+}
+
 function getDisplayKeywords() {
     const merged = {};
+    const aliases = userKeywords._categoryAliases || {};
 
     // Copy fetched keywords
     for (const [category, keywords] of Object.entries(fetchedKeywords)) {
-        merged[category] = [...keywords];
+        const displayCategory = aliases[category] || category;
+        if (!merged[displayCategory]) merged[displayCategory] = [];
+        merged[displayCategory].push(...keywords);
     }
 
     // Merge user keywords
     for (const [category, keywords] of Object.entries(userKeywords)) {
-        if (merged[category]) {
-            const existingKeywords = merged[category];
-            keywords.forEach(keyword => {
-                if (!existingKeywords.includes(keyword)) {
-                    existingKeywords.push(keyword);
-                }
-            });
-        } else {
-            merged[category] = [...keywords];
-        }
+        if (category === '_categoryAliases') continue;
+        const displayCategory = aliases[category] || category;
+        if (!merged[displayCategory]) merged[displayCategory] = [];
+        
+        const existingKeywords = merged[displayCategory];
+        keywords.forEach(keyword => {
+            if (!existingKeywords.includes(keyword)) {
+                existingKeywords.push(keyword);
+            }
+        });
     }
     return merged;
 }
@@ -358,15 +399,43 @@ function render() {
         const header = document.createElement('div');
         header.className = 'category-header';
 
+        const titleContainer = document.createElement('div');
+        titleContainer.className = 'category-title-container';
+
         const titleText = document.createElement('span');
         titleText.textContent = category;
+
+        const editBtn = document.createElement('span');
+        editBtn.className = 'edit-category-btn';
+        editBtn.innerHTML = '✎';
+        editBtn.title = 'カテゴリー名を編集';
+        editBtn.onclick = (e) => {
+            e.stopPropagation();
+            const newName = prompt('新しいカテゴリー名を入力（元に戻す場合は空欄）:', category);
+            if (newName !== null) {
+                const originalCategory = getOriginalCategoryName(category);
+                userKeywords._categoryAliases = userKeywords._categoryAliases || {};
+                if (newName.trim() === '') {
+                    delete userKeywords._categoryAliases[originalCategory];
+                    selectedCategory = originalCategory;
+                } else {
+                    userKeywords._categoryAliases[originalCategory] = newName.trim();
+                    selectedCategory = newName.trim();
+                }
+                render();
+                saveKeywordsToKV();
+            }
+        };
+
+        titleContainer.appendChild(titleText);
+        titleContainer.appendChild(editBtn);
 
         const icon = document.createElement('span');
         icon.className = 'toggle-icon';
         if (searchQuery) icon.classList.add('rotated');
         icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>'; // Down arrow
 
-        header.appendChild(titleText);
+        header.appendChild(titleContainer);
         header.appendChild(icon);
 
         header.onclick = () => {
@@ -397,7 +466,8 @@ function render() {
             };
 
             // Check if it's a user keyword to show remove button
-            if (userKeywords[category] && userKeywords[category].includes(keyword)) {
+            const originalCategory = getOriginalCategoryName(category);
+            if (userKeywords[originalCategory] && userKeywords[originalCategory].includes(keyword)) {
                 const removeBtn = document.createElement('span');
                 removeBtn.className = 'remove-btn';
                 removeBtn.innerHTML = '&times;';
@@ -423,12 +493,13 @@ function addKeyword() {
     const text = input.value.trim();
 
     if (text && selectedCategory) {
-        if (!userKeywords[selectedCategory]) {
-            userKeywords[selectedCategory] = [];
+        const originalCategory = getOriginalCategoryName(selectedCategory);
+        if (!userKeywords[originalCategory]) {
+            userKeywords[originalCategory] = [];
         }
 
-        if (!userKeywords[selectedCategory].includes(text)) {
-            userKeywords[selectedCategory].push(text);
+        if (!userKeywords[originalCategory].includes(text)) {
+            userKeywords[originalCategory].push(text);
             render();
             saveKeywordsToKV(); // Auto save or wait for button? Dart app saves on add.
         }
@@ -438,11 +509,12 @@ function addKeyword() {
     }
 }
 
-function removeKeyword(category, keyword) {
-    if (userKeywords[category]) {
-        userKeywords[category] = userKeywords[category].filter(k => k !== keyword);
-        if (userKeywords[category].length === 0) {
-            delete userKeywords[category];
+function removeKeyword(displayCategory, keyword) {
+    const originalCategory = getOriginalCategoryName(displayCategory);
+    if (userKeywords[originalCategory]) {
+        userKeywords[originalCategory] = userKeywords[originalCategory].filter(k => k !== keyword);
+        if (userKeywords[originalCategory].length === 0) {
+            delete userKeywords[originalCategory];
         }
         render();
         saveKeywordsToKV();
@@ -450,6 +522,9 @@ function removeKeyword(category, keyword) {
 }
 
 async function saveKeywordsToKV() {
+    // サーバーエラー時に備えて、常にブラウザのローカルにも保存しておく
+    localStorage.setItem('userKeywordsBackup', JSON.stringify(userKeywords));
+
     try {
         const response = await fetch(WORKER_SAVE_URL, {
             method: 'POST',
@@ -460,12 +535,14 @@ async function saveKeywordsToKV() {
         });
 
         if (response.ok) {
-            showToast('Keywords saved successfully!');
+            showToast('保存しました (同期完了)');
         } else {
             throw new Error(`Server responded with ${response.status}`);
         }
     } catch (e) {
-        alert(`Error saving keywords: ${e.message}`);
+        console.warn(`Error saving keywords to KV: ${e.message}`);
+        // エラーのポップアップ（alert）は出さず、画面下のトースト通知だけで知らせる
+        showToast('ローカルに保存しました (サーバー通信エラー)');
     }
 }
 
