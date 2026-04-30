@@ -41,6 +41,7 @@ const MAX_HISTORY = 30;
 document.addEventListener('DOMContentLoaded', () => {
     initialize();
     setupEventListeners();
+    setupModalResize();
 });
 
 function setupEventListeners() {
@@ -90,6 +91,55 @@ function setupEventListeners() {
         document.body.classList.add('dark-mode');
     }
     updateDarkModeIcon();
+}
+
+function setupModalResize() {
+    const modal = document.getElementById('edit-category-modal');
+    const dialog = document.getElementById('modal-dialog');
+    const resizeHandle = document.getElementById('modal-resize-handle');
+    
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+
+    const onResizeStart = (e) => {
+        isResizing = true;
+        startX = e.clientX || e.touches?.[0]?.clientX || 0;
+        startY = e.clientY || e.touches?.[0]?.clientY || 0;
+        startWidth = dialog.offsetWidth;
+        startHeight = dialog.offsetHeight;
+        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('touchmove', onResizeMove);
+        document.addEventListener('mouseup', onResizeEnd);
+        document.addEventListener('touchend', onResizeEnd);
+    };
+
+    const onResizeMove = (e) => {
+        if (!isResizing) return;
+        const currentX = e.clientX || e.touches?.[0]?.clientX || 0;
+        const currentY = e.clientY || e.touches?.[0]?.clientY || 0;
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+        
+        const newWidth = Math.max(300, startWidth + deltaX);
+        const newHeight = Math.max(200, startHeight + deltaY);
+        
+        dialog.style.width = newWidth + 'px';
+        dialog.style.height = newHeight + 'px';
+    };
+
+    const onResizeEnd = () => {
+        isResizing = false;
+        document.removeEventListener('mousemove', onResizeMove);
+        document.removeEventListener('touchmove', onResizeMove);
+        document.removeEventListener('mouseup', onResizeEnd);
+        document.removeEventListener('touchend', onResizeEnd);
+    };
+
+    resizeHandle.addEventListener('mousedown', onResizeStart);
+    resizeHandle.addEventListener('touchstart', onResizeStart);
 }
 
 function toggleDarkMode() {
@@ -411,20 +461,7 @@ function render() {
         editBtn.title = 'カテゴリー名を編集';
         editBtn.onclick = (e) => {
             e.stopPropagation();
-            const newName = prompt('新しいカテゴリー名を入力（元に戻す場合は空欄）:', category);
-            if (newName !== null) {
-                const originalCategory = getOriginalCategoryName(category);
-                userKeywords._categoryAliases = userKeywords._categoryAliases || {};
-                if (newName.trim() === '') {
-                    delete userKeywords._categoryAliases[originalCategory];
-                    selectedCategory = originalCategory;
-                } else {
-                    userKeywords._categoryAliases[originalCategory] = newName.trim();
-                    selectedCategory = newName.trim();
-                }
-                render();
-                saveKeywordsToKV();
-            }
+            openEditCategoryModal(category);
         };
 
         titleContainer.appendChild(titleText);
@@ -519,6 +556,59 @@ function removeKeyword(displayCategory, keyword) {
         render();
         saveKeywordsToKV();
     }
+}
+
+function openEditCategoryModal(category) {
+    const modal = document.getElementById('edit-category-modal');
+    const input = document.getElementById('modal-input');
+    const okBtn = document.getElementById('modal-ok-btn');
+    const cancelBtn = document.getElementById('modal-cancel-btn');
+    const closeBtn = document.getElementById('modal-close-btn');
+
+    input.value = category;
+    input.focus();
+    modal.classList.remove('hidden');
+
+    const handleSave = () => {
+        const newName = input.value.trim();
+        const originalCategory = getOriginalCategoryName(category);
+        userKeywords._categoryAliases = userKeywords._categoryAliases || {};
+        
+        if (newName === '') {
+            delete userKeywords._categoryAliases[originalCategory];
+            selectedCategory = originalCategory;
+        } else if (newName !== category) {
+            userKeywords._categoryAliases[originalCategory] = newName;
+            selectedCategory = newName;
+        }
+        
+        modal.classList.add('hidden');
+        render();
+        saveKeywordsToKV();
+    };
+
+    const handleClose = () => {
+        modal.classList.add('hidden');
+    };
+
+    okBtn.onclick = handleSave;
+    cancelBtn.onclick = handleClose;
+    closeBtn.onclick = handleClose;
+
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            handleClose();
+        }
+    };
+
+    // Close on background click
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            handleClose();
+        }
+    };
 }
 
 async function saveKeywordsToKV() {

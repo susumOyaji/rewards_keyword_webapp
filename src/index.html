@@ -91,6 +91,24 @@
 
     <div id="toast" class="hidden">Copied to clipboard</div>
 
+    <!-- Edit Category Modal -->
+    <div id="edit-category-modal" class="modal hidden">
+        <div id="modal-dialog" class="modal-dialog">
+            <div class="modal-header">
+                <h2>カテゴリー名を編集</h2>
+                <button id="modal-close-btn" class="modal-close-btn" title="Close">×</button>
+            </div>
+            <div class="modal-content">
+                <input type="text" id="modal-input" placeholder="新しいカテゴリー名を入力">
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="modal-button">キャンセル</button>
+                <button id="modal-ok-btn" class="modal-button primary">保存</button>
+            </div>
+            <div id="modal-resize-handle" class="modal-resize-handle"></div>
+        </div>
+    </div>
+
     <script src="./main.js"></script>
 </body>
 
