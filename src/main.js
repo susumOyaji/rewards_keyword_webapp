@@ -446,7 +446,7 @@ function render() {
     const listContainer = document.getElementById('keywords-list');
     listContainer.innerHTML = '';
 
-    categories.forEach(category => {
+    Object.keys(displayKeywords).forEach(category => {
         const keywords = displayKeywords[category];
 
         const card = document.createElement('div');
