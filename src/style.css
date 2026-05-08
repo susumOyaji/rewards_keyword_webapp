@@ -116,11 +116,6 @@ header h1 {
     padding: 16px;
 }
 
-.control-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
 
 .search-container {
     position: relative;
@@ -131,6 +126,13 @@ header h1 {
     display: flex;
     gap: 12px;
     align-items: center;
+    width: 100%;
+}
+
+#open-add-modal-btn {
+    padding: 6px 16px;
+    font-size: 14px;
+    flex-shrink: 0;
 }
 
 .search-icon {
@@ -143,6 +145,7 @@ header h1 {
     outline: none;
     background: transparent;
 }
+
 
 .search-history-dropdown {
     position: absolute;
@@ -224,12 +227,40 @@ button {
     border: none;
     cursor: pointer;
     padding: 8px;
-    border-radius: 50%;
+    border-radius: 4px;
     transition: background-color 0.3s;
 }
 
 button:hover {
     background-color: rgba(0, 0, 0, 0.1);
+}
+
+.action-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn.primary {
+    background-color: #2196F3;
+    color: white;
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.action-btn.primary:hover {
+    background-color: #1976D2;
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
+    transform: translateY(-1px);
+}
+
+#dark-mode-btn {
+    border-radius: 50%;
+    padding: 10px;
 }
 
 button svg {
@@ -553,7 +584,21 @@ body.dark-mode .source-link a {
     padding: 24px;
     overflow-y: auto;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 16px;
+    justify-content: center;
+}
+
+.modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.modal-field label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
 }
 
 .modal-content input {

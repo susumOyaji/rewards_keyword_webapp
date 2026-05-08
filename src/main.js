@@ -45,12 +45,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    document.getElementById('category-select').addEventListener('change', (e) => {
-        selectedCategory = e.target.value;
+    document.getElementById('open-add-modal-btn').addEventListener('click', openAddKeywordModal);
+    
+    // Add Modal Events
+    document.getElementById('add-modal-ok-btn').addEventListener('click', handleAddKeyword);
+    document.getElementById('add-modal-cancel-btn').addEventListener('click', () => {
+        document.getElementById('add-keyword-modal').classList.add('hidden');
     });
-
-    document.getElementById('add-btn').addEventListener('click', addKeyword);
-    document.getElementById('save-btn').addEventListener('click', saveKeywordsToKV);
+    document.getElementById('add-modal-close-btn').addEventListener('click', () => {
+        document.getElementById('add-keyword-modal').classList.add('hidden');
+    });
+    document.getElementById('add-modal-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleAddKeyword();
+        if (e.key === 'Escape') document.getElementById('add-keyword-modal').classList.add('hidden');
+    });
+    document.getElementById('add-keyword-modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('add-keyword-modal')) {
+            e.target.classList.add('hidden');
+        }
+    });
 
     const searchInput = document.getElementById('keyword-search');
     searchInput.addEventListener('input', (e) => {
@@ -411,29 +424,22 @@ function render() {
         displayKeywords = filtered;
     }
 
-    const categories = Object.keys(displayKeywords);
+    const categories = Object.keys(getDisplayKeywords()); // Always use all categories for dropdowns
 
-    // Update Dropdown
-    const select = document.getElementById('category-select');
-    // Save current selection if valid
-    const currentSelection = select.value;
-    select.innerHTML = '<option value="" disabled>Category</option>';
-
+    // Update Dropdown in Add Modal
+    const modalSelect = document.getElementById('add-modal-category-select');
+    modalSelect.innerHTML = '';
     categories.forEach(category => {
         const option = document.createElement('option');
         option.value = category;
         option.textContent = category;
-        select.appendChild(option);
+        modalSelect.appendChild(option);
     });
 
-    if (currentSelection && categories.includes(currentSelection)) {
-        select.value = currentSelection;
-        selectedCategory = currentSelection;
-    } else if (categories.length > 0 && !selectedCategory) {
-        select.value = categories[0];
-        selectedCategory = categories[0];
-    } else if (selectedCategory) {
-        select.value = selectedCategory;
+    if (selectedCategory && categories.includes(selectedCategory)) {
+        modalSelect.value = selectedCategory;
+    } else if (categories.length > 0) {
+        modalSelect.value = categories[0];
     }
 
     // Render List
@@ -525,25 +531,92 @@ function render() {
     });
 }
 
-function addKeyword() {
-    const input = document.getElementById('keyword-input');
-    const text = input.value.trim();
+function openAddKeywordModal() {
+    const modal = document.getElementById('add-keyword-modal');
+    const input = document.getElementById('add-modal-input');
+    const select = document.getElementById('add-modal-category-select');
 
-    if (text && selectedCategory) {
-        const originalCategory = getOriginalCategoryName(selectedCategory);
+    input.value = '';
+    if (selectedCategory) {
+        select.value = selectedCategory;
+    }
+    
+    modal.classList.remove('hidden');
+    input.focus();
+
+    setupModalSpecificResize('add-keyword-modal', 'add-modal-dialog', 'add-modal-resize-handle');
+}
+
+function handleAddKeyword() {
+    const input = document.getElementById('add-modal-input');
+    const select = document.getElementById('add-modal-category-select');
+    const modal = document.getElementById('add-keyword-modal');
+    
+    const text = input.value.trim();
+    const category = select.value;
+
+    if (text && category) {
+        // Close immediately
+        modal.classList.add('hidden');
+        
+        const originalCategory = getOriginalCategoryName(category);
         if (!userKeywords[originalCategory]) {
             userKeywords[originalCategory] = [];
         }
 
         if (!userKeywords[originalCategory].includes(text)) {
             userKeywords[originalCategory].push(text);
+            selectedCategory = category;
             render();
-            saveKeywordsToKV(); // Auto save or wait for button? Dart app saves on add.
+            saveKeywordsToKV();
         }
-        input.value = '';
     } else {
-        if (!selectedCategory) alert('Please select a category first.');
+        if (!category) alert('カテゴリーを選択してください。');
+        else if (!text) alert('キーワードを入力してください。');
     }
+}
+
+function setupModalSpecificResize(modalId, dialogId, handleId) {
+    const dialog = document.getElementById(dialogId);
+    const resizeHandle = document.getElementById(handleId);
+    
+    let isResizing = false;
+    let startX, startY, startWidth, startHeight;
+
+    const onResizeStart = (e) => {
+        isResizing = true;
+        startX = e.clientX || e.touches?.[0]?.clientX || 0;
+        startY = e.clientY || e.touches?.[0]?.clientY || 0;
+        startWidth = dialog.offsetWidth;
+        startHeight = dialog.offsetHeight;
+        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('touchmove', onResizeMove);
+        document.addEventListener('mouseup', onResizeEnd);
+        document.addEventListener('touchend', onResizeEnd);
+        e.preventDefault();
+    };
+
+    const onResizeMove = (e) => {
+        if (!isResizing) return;
+        const currentX = e.clientX || e.touches?.[0]?.clientX || 0;
+        const currentY = e.clientY || e.touches?.[0]?.clientY || 0;
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+        
+        dialog.style.width = Math.max(300, startWidth + deltaX) + 'px';
+        dialog.style.height = Math.max(200, startHeight + deltaY) + 'px';
+    };
+
+    const onResizeEnd = () => {
+        isResizing = false;
+        document.removeEventListener('mousemove', onResizeMove);
+        document.removeEventListener('touchmove', onResizeMove);
+        document.removeEventListener('mouseup', onResizeEnd);
+        document.removeEventListener('touchend', onResizeEnd);
+    };
+
+    resizeHandle.onmousedown = onResizeStart;
+    resizeHandle.ontouchstart = onResizeStart;
 }
 
 function removeKeyword(displayCategory, keyword) {
